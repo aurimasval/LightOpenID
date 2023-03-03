@@ -1143,4 +1143,29 @@ class LightOpenID
     {
         return isset($this->data[$id]) ? $this->data[$id] : null; 
     }
+    
+    
+    function useCurl()
+    {
+        $use_curl = false;
+        
+        if (function_exists('curl_init')) {
+            if (!$use_curl) {
+                # When allow_url_fopen is disabled, PHP streams will not work.
+                $use_curl = !ini_get('allow_url_fopen');
+            }
+            
+            if (!$use_curl) {
+                # When there is no HTTPS wrapper, PHP streams cannott be used.
+                $use_curl = !in_array('https', stream_get_wrappers());
+            }
+            
+            if (!$use_curl) {
+                # With open_basedir or safe_mode set, cURL can't follow redirects.
+                $use_curl = !(ini_get('safe_mode') || ini_get('open_basedir'));
+            }
+        }
+        
+        return $use_curl;
+    }
 }
