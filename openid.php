@@ -241,15 +241,9 @@ class LightOpenID
         }
         $response = curl_exec($curl);
         
-        throw new ErrorException('Curl error: ' . curl_error($curl) . curl_getinfo($curl, CURLINFO_HTTP_CODE) . ' Response: ' . $response);
-
         if($method == 'HEAD' && curl_getinfo($curl, CURLINFO_HTTP_CODE) == 405) {
             curl_setopt($curl, CURLOPT_HTTPGET, true);
             $response = curl_exec($curl);
-            
-            if (!$response) {
-                throw new ErrorException(curl_error($curl), curl_errno($curl));
-            }
             
             $response = substr($response, 0, strpos($response, "\r\n\r\n"));
         }
