@@ -928,6 +928,67 @@ class LightOpenID
 
         return preg_match('/is_valid\s*:\s*true/i', $response);
     }
+    
+    
+    function validateResponse()
+    {
+        # If the request was using immediate mode, a failure may be reported
+        # by presenting user_setup_url (for 1.1) or reporting
+        # mode 'setup_needed' (for 2.0). Also catching all modes other than
+        # id_res, in order to avoid throwing errors.
+        if(isset($this->data['openid_user_setup_url'])) {
+            $this->setup_url = $this->data['openid_user_setup_url'];
+            return false;
+        }
+        if($this->mode != 'id_res') {
+            return false;
+        }
+
+        $this->claimed_id = isset($this->data['openid_claimed_id'])?$this->data['openid_claimed_id']:$this->data['openid_identity'];
+        $params = array(
+            'openid.assoc_handle' => $this->data['openid_assoc_handle'],
+            'openid.signed'       => $this->data['openid_signed'],
+            'openid.sig'          => $this->data['openid_sig'],
+            );
+
+        if (isset($this->data['openid_ns'])) {
+            # We're dealing with an OpenID 2.0 server, so let's set an ns
+            # Even though we should know location of the endpoint,
+            # we still need to verify it by discovery, so $server is not set here
+            $params['openid.ns'] = 'http://specs.openid.net/auth/2.0';
+        } elseif (isset($this->data['openid_claimed_id'])
+            && $this->data['openid_claimed_id'] != $this->data['openid_identity']
+        ) {
+            # If it's an OpenID 1 provider, and we've got claimed_id,
+            # we have to append it to the returnUrl, like authUrl_v1 does.
+            $this->returnUrl .= (strpos($this->returnUrl, '?') ? '&' : '?')
+                             .  'openid.claimed_id=' . $this->claimed_id;
+        }
+
+        if ($this->data['openid_return_to'] != $this->returnUrl) {
+            # The return_to url must match the url of current request.
+            # I'm assuming that no one will set the returnUrl to something that doesn't make sense.
+            return false;
+        }
+
+        $server = $this->discover($this->claimed_id);
+
+        foreach (explode(',', $this->data['openid_signed']) as $item) {
+            # Checking whether magic_quotes_gpc is turned on, because
+            # the function may fail if it is. For example, when fetching
+            # AX namePerson, it might contain an apostrophe, which will be escaped.
+            # In such case, validation would fail, since we'd send different data than OP
+            # wants to verify. stripslashes() should solve that problem, but we can't
+            # use it when magic_quotes is off.
+            $value = $this->data['openid_' . str_replace('.','_',$item)];
+            $params['openid.' . $item] = function_exists('get_magic_quotes_gpc') && get_magic_quotes_gpc() ? stripslashes($value) : $value;
+
+        }
+
+        $params['openid.mode'] = 'check_authentication';
+
+        return $this->request($server, 'POST', $params);
+    }
 
     protected function getAxAttributes()
     {
