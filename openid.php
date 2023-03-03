@@ -240,10 +240,19 @@ class LightOpenID
             curl_setopt($curl, CURLOPT_HTTPGET, true);
         }
         $response = curl_exec($curl);
+        
+        if ($response === false) {
+            throw new ErrorException(curl_error($curl), curl_errno($curl));
+        }
 
         if($method == 'HEAD' && curl_getinfo($curl, CURLINFO_HTTP_CODE) == 405) {
             curl_setopt($curl, CURLOPT_HTTPGET, true);
             $response = curl_exec($curl);
+            
+            if ($response === false) {
+                throw new ErrorException(curl_error($curl), curl_errno($curl));
+            }
+            
             $response = substr($response, 0, strpos($response, "\r\n\r\n"));
         }
 
